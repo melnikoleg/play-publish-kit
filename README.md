@@ -23,7 +23,8 @@ play-publish-kit/
 │   └── PROMPTS.md           # copy-paste Claude Code prompts
 └── templates/
     ├── build.gradle.kts.signing-snippet
-    └── metadata/android/en-US/...   # store listing skeleton
+    ├── release.yml                 # optional GitHub Actions release workflow
+    └── metadata/android/en-US/...  # store listing skeleton + changelogs/<versionCode>.txt
 ```
 
 ## Quickstart (per app)

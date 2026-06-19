@@ -29,11 +29,14 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          # Flavor is optional — only pass --flavor if the FLAVOR repo var is set.
+          FLAVOR_ARG=""
+          [ -n "${{ vars.FLAVOR }}" ] && FLAVOR_ARG="--flavor ${{ vars.FLAVOR }}"
           # Add any --dart-define flags your app needs, e.g.:
           # --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
           flutter build appbundle \
             --release \
-            --flavor ${{ vars.FLAVOR || 'prod' }} \
+            $FLAVOR_ARG \
             --build-number=${{ github.run_number }}
 
       - uses: actions/upload-artifact@v4
