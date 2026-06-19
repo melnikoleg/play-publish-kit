@@ -1,0 +1,12 @@
+{{Full store description, max 4000 characters.}}
+
+KEY FEATURES
+
+• {{feature one}}
+• {{feature two}}
+• {{feature three}}
+
+PRIVACY
+
+{{What data the app collects/transmits, matching the Data Safety form and the
+privacy policy. If it collects nothing beyond an account id, say so.}}

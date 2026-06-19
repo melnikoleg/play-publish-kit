@@ -1,0 +1,26 @@
+// Paste into android/app/build.gradle.kts (Kotlin DSL) so `flutter build appbundle
+// --release` is signed with the upload key from env vars set by scripts/publish.sh.
+// No passwords in the repo. For the older Groovy build.gradle, adapt syntax.
+
+android {
+    signingConfigs {
+        create("release") {
+            val path = System.getenv("KEYSTORE_PATH")
+            if (!path.isNullOrBlank()) {
+                storeFile = file(path)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            // Native debug symbols for Play Console crash/ANR reports.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
+        }
+    }
+}

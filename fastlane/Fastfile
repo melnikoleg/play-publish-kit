@@ -1,0 +1,27 @@
+default_platform(:android)
+
+# App-agnostic upload lane. Package + service account come from the env
+# (Appfile). The AAB is built by scripts/publish.sh and passed in as `aab:`.
+platform :android do
+  desc "Upload a pre-built AAB to a Play track. Options: track, aab, rollout, skip_metadata, skip_images, dry_run."
+  lane :deploy do |options|
+    track = options[:track] || "internal"
+    aab = options[:aab]
+    UI.user_error!("pass aab:<path>") unless aab
+    UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
+
+    params = {
+      track: track,
+      aab: aab,
+      release_status: options[:rollout] ? "inProgress" : "completed",
+      skip_upload_metadata: options.fetch(:skip_metadata, true),
+      skip_upload_images: options.fetch(:skip_images, true),
+      skip_upload_screenshots: options.fetch(:skip_images, true),
+      metadata_path: options[:metadata_path] || "./fastlane/metadata/android",
+      validate_only: options.fetch(:dry_run, false),
+    }
+    params[:rollout] = options[:rollout].to_s if options[:rollout]
+
+    upload_to_play_store(**params)
+  end
+end

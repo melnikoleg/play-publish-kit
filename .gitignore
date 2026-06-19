@@ -1,0 +1,9 @@
+# Secrets and per-app config — never commit, in any repo this kit lives in.
+.env.play
+*.jks
+*.keystore
+*service-account*.json
+fastlane/report.xml
+fastlane/Preview.html
+vendor/
+.bundle/
