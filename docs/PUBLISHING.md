@@ -17,11 +17,17 @@ values live in `.env.play`, not in code or scripts.
 | Upload to a track | ✅ | fastlane `deploy` lane |
 | Staged rollout % | ✅ `--rollout=` | fastlane `supply` |
 | Store listing text + changelog | ✅ `--upload-metadata` | `fastlane/metadata/android/` |
-| **Create the app entry** in Play Console | ❌ one-time | Play Console UI |
-| **First-ever AAB upload** | ❌ one-time | Play Console UI (API can't bootstrap) |
+| GCP project + service account + JSON key | ✅ one-time | `scripts/setup_gcp_service_account.sh` (gcloud) |
+| **Create the app entry** in Play Console | ❌ one-time | Play Console UI (no API) |
+| **First-ever AAB upload** + App Signing enroll | ❌ one-time | Play Console UI (API can't bootstrap) |
+| **Link service account / grant Play perms** | ❌ one-time | Play Console UI (no API) |
 | Content rating questionnaire | ❌ one-time | Play Console UI |
 | Data Safety form | ❌ one-time | Play Console UI ([DATA_SAFETY.md](DATA_SAFETY.md)) |
 | Pricing, countries, target audience | ❌ one-time | Play Console UI |
+
+**Rule of thumb:** everything on the **Google Cloud** side is CLI-scriptable
+(gcloud). Everything on the **Play Console** side (create app, first upload,
+service-account grant, content forms) is browser-only — Google ships no API for it.
 
 ---
 
@@ -40,9 +46,12 @@ values live in `.env.play`, not in code or scripts.
    **upload the first AAB by hand** in *Testing → Internal testing*. Enroll in
    **Play App Signing** when prompted. (The Developer API cannot create the app
    or its first release.)
-6. **Service account**: Play Console → *Setup → API access* → create/link a
-   Google Cloud service account → grant *Release to testing tracks* + *Manage
-   production releases* → download JSON → point `PLAY_SERVICE_ACCOUNT_JSON` at it.
+6. **Service account** (CLI): `scripts/setup_gcp_service_account.sh` creates the
+   GCP project, enables the Android Publisher API, makes the service account, and
+   downloads the JSON key to `PLAY_SERVICE_ACCOUNT_JSON`. Then do the one manual
+   bit it prints: Play Console → *Users and permissions* → *Invite new users* →
+   paste the SA email → grant *Release apps to testing tracks* (+ *Release to
+   production* if needed) → *Send invite*. (Google has no API for the grant.)
 7. **App content** (Policy → App content): privacy policy URL, Data Safety,
    content rating, target audience, ads declaration. See
    [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
