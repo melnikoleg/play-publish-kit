@@ -48,7 +48,8 @@ for v in APP_PACKAGE KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD PLAY
 done
 [[ -f "$KEYSTORE_PATH" ]] || fail "keystore not found: $KEYSTORE_PATH (run scripts/gen_upload_keystore.sh)"
 [[ -f "$PLAY_SERVICE_ACCOUNT_JSON" ]] || fail "service account json not found: $PLAY_SERVICE_ACCOUNT_JSON"
-[[ "$TRACK" != "production" || -z "$ROLLOUT" ]] || [[ "$ROLLOUT" =~ ^0?\.[0-9]+$|^1$|^1\.0$ ]] || fail "invalid --rollout=$ROLLOUT"
+# Rollout fraction must be 0<f<=1 whenever set (e.g. 0.1, .5, 1). Rejects 0 / 0.0.
+[[ -z "$ROLLOUT" ]] || [[ "$ROLLOUT" =~ ^(0?\.[0-9]*[1-9][0-9]*|1|1\.0+)$ ]] || fail "invalid --rollout=$ROLLOUT (use 0<f<=1, e.g. 0.1)"
 
 export APP_PACKAGE KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON
 
@@ -63,8 +64,11 @@ fi
 
 # ── Version bump ──────────────────────────────────────────────────────────────
 if [[ "$BUMP" == 1 ]]; then
+  before="$(grep '^version:' "$PROJECT_DIR/pubspec.yaml" || true)"
   perl -i -pe 's/^(version:\s*\d+\.\d+\.\d+\+)(\d+)/$1.($2+1)/e' "$PROJECT_DIR/pubspec.yaml"
-  echo "==> bumped to $(grep '^version:' "$PROJECT_DIR/pubspec.yaml")"
+  after="$(grep '^version:' "$PROJECT_DIR/pubspec.yaml" || true)"
+  [[ "$before" != "$after" ]] || fail "--bump: no 'version: x.y.z+N' line to increment (found: ${before:-none}). Add a +build number to pubspec.yaml."
+  echo "==> bumped: $after"
 fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
