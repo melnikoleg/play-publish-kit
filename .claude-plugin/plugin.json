@@ -1,0 +1,13 @@
+{
+  "name": "play-publish-kit",
+  "version": "1.0.0",
+  "description": "Ship any Flutter app to Google Play: setup audit & new-app bootstrap, internal releases, staged production rollouts, store listing drafting, Data Safety and target-SDK compliance.",
+  "author": {
+    "name": "Aleh Melnik",
+    "email": "melnik.aleh.94@gmail.com"
+  },
+  "homepage": "https://github.com/melnikoleg/play-publish-kit",
+  "repository": "https://github.com/melnikoleg/play-publish-kit",
+  "license": "MIT",
+  "keywords": ["flutter", "android", "google-play", "fastlane", "release", "publishing"]
+}
