@@ -3,6 +3,11 @@
 Generic copy-paste prompts to drive any app's Play release with this kit. Run
 them from the Flutter project that has the kit configured (`.env.play` filled).
 
+> **Installed the kit as a Claude Code plugin?** These prompts exist as
+> skills — no copy-paste needed: `/play-publish-kit:setup` (prompts 1, 6),
+> `/play-publish-kit:release` (2, 5), `/play-publish-kit:listing` (3),
+> `/play-publish-kit:compliance` (4, 7). See the README for install steps.
+
 ---
 
 ## 1. Setup audit
