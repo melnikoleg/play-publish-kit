@@ -124,6 +124,18 @@ production; halt/roll back in the Console on regressions.
 - **"signed with a different certificate"** → wrong upload keystore; the AAB must
   be signed with the upload key enrolled in Play App Signing.
 - **Service account 403** → permissions not granted, or propagation delay.
+- **`--upload-images` commits with "The caller does not have permission"
+  even though image uploads themselves succeed** → the individual
+  `edits.images.upload` calls only need "Manage store presence", but
+  **committing** an edit containing image changes needs **Admin (all
+  permissions)** on that app — "Release apps to testing tracks" +
+  "Manage store presence" together are not enough. This is undocumented by
+  Google; confirmed by testing directly against the Play Developer API.
+  Grant Admin on the one app if `--upload-images` fails at the commit step
+  with everything else already granted.
+- **"Image type invalid"** on `--upload-images` → usually the icon has an
+  alpha channel; Play's app icon must be fully opaque. Flatten it:
+  `magick icon.png -background white -alpha remove -alpha off icon.png`.
 - **AAB missing after build** → flavor mismatch; check `FLAVOR` in `.env.play` or
   set `AAB_PATH` explicitly.
 - **Gradle ignores the keystore** → build.gradle not reading env vars; re-check
