@@ -1,0 +1,96 @@
+name: Release to Google Play
+
+# Manual-dispatch variant that reuses this kit's own scripts/publish.sh and
+# fastlane lane directly, so CI behaves identically to a local release.
+# Alternative to release.yml (which uses a third-party GitHub Action and
+# tag-push triggers instead). Copy to <repo>/.github/workflows/, adjust the
+# APP_PACKAGE/APP_NAME/paths below, and set the four secrets listed under
+# "Decode signing key and service account".
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track: internal | alpha | beta | production"
+        required: true
+        default: internal
+        type: choice
+        options: [internal, alpha, beta, production]
+      bump:
+        description: "Bump build number (+N) before building"
+        required: false
+        default: true
+        type: boolean
+      rollout:
+        description: "Staged rollout fraction, production only (e.g. 0.1)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.6" # match `flutter --version`
+          channel: stable
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: play-publish-kit # adjust if the kit lives elsewhere
+
+      # Secrets needed, base64 for the two binary files:
+      #   PLAY_UPLOAD_KEYSTORE_B64       base64 -i upload.jks | gh secret set ...
+      #   PLAY_SERVICE_ACCOUNT_JSON_B64  base64 -i service-account.json | gh secret set ...
+      #   PLAY_KEYSTORE_PASSWORD
+      #   PLAY_KEY_PASSWORD
+      - name: Decode signing key and service account
+        run: |
+          mkdir -p "$HOME/.config/play"
+          echo "${{ secrets.PLAY_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$HOME/.config/play/upload.jks"
+          echo "${{ secrets.PLAY_SERVICE_ACCOUNT_JSON_B64 }}" | base64 -d > "$HOME/.config/play/service-account.json"
+
+      - name: Write kit config
+        run: |
+          cat > play-publish-kit/.env.play <<EOF
+          APP_PACKAGE="com.example.app"
+          APP_NAME="Example App"
+          FLAVOR=""
+          PROJECT_DIR="$GITHUB_WORKSPACE"
+          AAB_PATH=""
+          KEYSTORE_PATH="$HOME/.config/play/upload.jks"
+          KEYSTORE_PASSWORD="${{ secrets.PLAY_KEYSTORE_PASSWORD }}"
+          KEY_ALIAS="upload"
+          KEY_PASSWORD="${{ secrets.PLAY_KEY_PASSWORD }}"
+          PLAY_SERVICE_ACCOUNT_JSON="$HOME/.config/play/service-account.json"
+          DART_DEFINES=""
+          EOF
+
+      - name: Build and publish
+        working-directory: play-publish-kit
+        run: |
+          args=("${{ github.event.inputs.track }}")
+          [ "${{ github.event.inputs.bump }}" = "true" ] && args+=(--bump)
+          [ -n "${{ github.event.inputs.rollout }}" ] && args+=("--rollout=${{ github.event.inputs.rollout }}")
+          ./scripts/publish.sh "${args[@]}"
+
+      # Keeps pubspec.yaml's +build number in sync with what Play has, and
+      # tags the release. Skip this step (or the whole --bump input) if the
+      # project computes build numbers a different way (e.g. from run number).
+      - name: Commit version bump and tag
+        if: ${{ github.event.inputs.bump == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to $version [skip ci]" || exit 0
+          git tag "v$version"
+          git push origin HEAD:main --follow-tags
