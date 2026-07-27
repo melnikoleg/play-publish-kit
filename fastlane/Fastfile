@@ -17,10 +17,12 @@ platform :android do
       skip_upload_metadata: options.fetch(:skip_metadata, true),
       skip_upload_images: options.fetch(:skip_images, true),
       skip_upload_screenshots: options.fetch(:skip_images, true),
-      metadata_path: options[:metadata_path] || "./fastlane/metadata/android",
       validate_only: options.fetch(:dry_run, false),
     }
     params[:rollout] = options[:rollout].to_s if options[:rollout]
+    # fastlane validates metadata_path exists even when skip_upload_metadata
+    # is true, so only pass it when metadata is actually being uploaded.
+    params[:metadata_path] = options[:metadata_path] if options[:metadata_path]
 
     upload_to_play_store(**params)
   end

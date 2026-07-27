@@ -123,7 +123,18 @@ production; halt/roll back in the Console on regressions.
   `APP_PACKAGE`; do the one-time manual upload.
 - **"signed with a different certificate"** → wrong upload keystore; the AAB must
   be signed with the upload key enrolled in Play App Signing.
-- **Service account 403** → permissions not granted, or propagation delay.
+- **Service account 403 / "The caller does not have permission"** →
+  permissions not granted, or propagation delay. Most common cause on a
+  fresh project: the service account exists in GCP but was never actually
+  invited in Play Console (see `setup_gcp_service_account.sh`'s manual step
+  above) — check *Users and permissions* for its email before assuming
+  propagation delay.
+- **"Could not find folder ./fastlane/metadata/android"** → fastlane's
+  `upload_to_play_store` validates `metadata_path` exists even when
+  `skip_upload_metadata: true`. Fixed in the Fastfile by only passing
+  `metadata_path` when metadata upload is actually requested; if you're on
+  an older copy of this kit, apply the same fix or pass
+  `metadata_path:nil` explicitly.
 - **`--upload-images` commits with "The caller does not have permission"
   even though image uploads themselves succeed** → the individual
   `edits.images.upload` calls only need "Manage store presence", but
