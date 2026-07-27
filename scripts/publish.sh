@@ -41,8 +41,16 @@ for arg in "$@"; do
 done
 
 # ── Config ────────────────────────────────────────────────────────────────────
-[[ -f "$KIT_DIR/.env.play" ]] || { echo "Missing $KIT_DIR/.env.play — copy .env.play.example and fill it in." >&2; exit 1; }
-set -a; source "$KIT_DIR/.env.play"; set +a
+# .env.play resolution: $ENV_PLAY_PATH (explicit) > $KIT_DIR/.env.play (copy-in
+# kit, legacy) > $PWD/.env.play (kit installed elsewhere, e.g. as a plugin).
+ENV_PLAY="${ENV_PLAY_PATH:-}"
+if [[ -z "$ENV_PLAY" ]]; then
+  for c in "$KIT_DIR/.env.play" "$PWD/.env.play"; do
+    [[ -f "$c" ]] && { ENV_PLAY="$c"; break; }
+  done
+fi
+[[ -n "$ENV_PLAY" && -f "$ENV_PLAY" ]] || { echo "No .env.play found (checked \$ENV_PLAY_PATH, $KIT_DIR/.env.play, $PWD/.env.play) — copy .env.play.example and fill it in." >&2; exit 1; }
+set -a; source "$ENV_PLAY"; set +a
 
 PROJECT_DIR="${PROJECT_DIR:-$PWD}"
 FLAVOR="${FLAVOR:-}"
@@ -98,6 +106,7 @@ fl_args=("track:$TRACK" "aab:$AAB")
 [[ "$DRY_RUN" == 1 ]] && fl_args+=("dry_run:true")
 if [[ "$UPLOAD_META" == 1 ]]; then fl_args+=("skip_metadata:false"); else fl_args+=("skip_metadata:true"); fi
 if [[ "$UPLOAD_IMAGES" == 1 ]]; then fl_args+=("skip_images:false"); else fl_args+=("skip_images:true"); fi
+[[ -n "${METADATA_DIR:-}" ]] && fl_args+=("metadata_path:$METADATA_DIR")
 
 echo "==> (cd $KIT_DIR) fastlane deploy ${fl_args[*]}"
 ( cd "$KIT_DIR" && bundle exec fastlane deploy "${fl_args[@]}" )

@@ -9,7 +9,15 @@
 set -euo pipefail
 
 KIT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-[[ -f "$KIT_DIR/.env.play" ]] && { set -a; source "$KIT_DIR/.env.play"; set +a; }
+# .env.play resolution: $ENV_PLAY_PATH (explicit) > $KIT_DIR/.env.play (copy-in
+# kit, legacy) > $PWD/.env.play (kit installed elsewhere, e.g. as a plugin).
+ENV_PLAY="${ENV_PLAY_PATH:-}"
+if [[ -z "$ENV_PLAY" ]]; then
+  for c in "$KIT_DIR/.env.play" "$PWD/.env.play"; do
+    [[ -f "$c" ]] && { ENV_PLAY="$c"; break; }
+  done
+fi
+[[ -n "$ENV_PLAY" && -f "$ENV_PLAY" ]] && { set -a; source "$ENV_PLAY"; set +a; }
 
 OUT="${1:-${KEYSTORE_PATH:-$HOME/.config/play/upload.jks}}"
 ALIAS="${KEY_ALIAS:-upload}"

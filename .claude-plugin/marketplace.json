@@ -1,0 +1,17 @@
+{
+  "name": "play-publish-kit",
+  "owner": {
+    "name": "Aleh Melnik"
+  },
+  "metadata": {
+    "description": "Marketplace for the Play Publish Kit plugin",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "play-publish-kit",
+      "source": "./",
+      "description": "Publish Flutter apps to Google Play: setup, releases, staged rollouts, store listing, compliance."
+    }
+  ]
+}
