@@ -15,15 +15,20 @@ values live in `.env.play`, not in code or scripts.
 | Build signed release AAB | ✅ | `scripts/publish.sh` |
 | Version bump (`+build`) | ✅ `--bump` | project `pubspec.yaml` |
 | Upload to a track | ✅ | fastlane `deploy` lane |
+| R8 mapping.txt (deobfuscated crashes) | ✅ auto | uploaded with the AAB when present |
+| Promote a tested build between tracks | ✅ `promote` | fastlane `promote` lane (no rebuild) |
 | Staged rollout % | ✅ `--rollout=` | fastlane `supply` |
+| Raise / halt / complete a staged rollout | ✅ `rollout` | fastlane `rollout` lane |
 | Store listing text + changelog | ✅ `--upload-metadata` | `fastlane/metadata/android/` |
 | Icon, feature graphic, screenshots | ✅ `--upload-images` | `fastlane/metadata/android/en-US/images/` |
 | GCP project + service account + JSON key | ✅ one-time | `scripts/setup_gcp_service_account.sh` (gcloud) |
 | **Create the app entry** in Play Console | ❌ one-time | Play Console UI (no API) |
 | **Link service account / grant Play perms** | ❌ one-time | Play Console UI (no API) |
+| Developer account verification (ID / D-U-N-S) | ❌ one-time | Play Console UI |
 | Content rating questionnaire | ❌ one-time | Play Console UI |
 | Data Safety form | ❌ one-time | Play Console UI ([DATA_SAFETY.md](DATA_SAFETY.md)) |
 | Pricing, countries, target audience | ❌ one-time | Play Console UI |
+| 12-tester closed test + production-access application | ❌ one-time | Play Console UI (new personal accounts, see below) |
 
 **Rule of thumb:** everything on the **Google Cloud** side is CLI-scriptable
 (gcloud). Everything on the **Play Console** side (create app, service-account
@@ -64,11 +69,23 @@ app" until the listing is complete).
    templates hardcode a literal number instead. If hardcoded, `--bump` edits
    `pubspec.yaml` but Gradle ignores it, and every upload after the first
    fails with `Version code N has already been used`.
-5. **Play Console**: pay the $25 dev fee (once per developer account), then
-   **Create app**. Play App Signing auto-enrolls on new apps — no manual step
-   needed. The first AAB upload does **not** need to be manual; once the
-   service account (next step) is granted, `scripts/publish.sh internal` works
-   immediately, including for the very first release.
+5. **Play Console**: pay the $25 dev fee (once per developer account),
+   complete account **verification** (personal: government ID + address doc;
+   organization: business registry papers + D-U-N-S number — can take days,
+   start early), then **Create app**. Play App Signing auto-enrolls on new
+   apps — no manual step needed. The first AAB upload does **not** need to be
+   manual; once the service account (next step) is granted,
+   `scripts/publish.sh internal` works immediately, including for the very
+   first release.
+
+   **Production gate for new personal accounts** (created after Nov 13, 2023):
+   Google requires a **closed test with ≥12 testers opted in for 14
+   consecutive days** before you can *apply* for production access ("opted
+   in" = accepted the invite and installed; invited-but-not-installed doesn't
+   count). Organization accounts are exempt. Plan the alpha track phase
+   around this — production simply won't exist as a target until Google
+   approves the application. Details:
+   https://support.google.com/googleplay/android-developer/answer/14151465
 6. **Service account** (CLI): if this app shares a developer account with an
    earlier one, give it its **own** service account — set
    `PLAY_SERVICE_ACCOUNT_JSON` in `.env.play` to a new path *before* running
@@ -102,7 +119,17 @@ scripts/publish.sh internal --upload-metadata --no-build
 # Push icon/feature graphic/screenshots from fastlane/metadata/.../images/
 scripts/publish.sh internal --upload-images --no-build
 
-# Promote to production at 10% staged rollout
+# Promote the build already tested on internal to production at 10% —
+# no rebuild, ships the exact tested binary (preferred)
+scripts/publish.sh promote --from=internal --to=production --rollout=0.1
+
+# Then manage the staged rollout entirely from the CLI
+scripts/publish.sh rollout --set=0.5      # raise to 50%
+scripts/publish.sh rollout --complete     # go to 100%
+scripts/publish.sh rollout --halt         # stop it on a regression
+
+# Build fresh and upload straight to production (only when there's nothing
+# on a testing track to promote)
 scripts/publish.sh production --rollout=0.1
 ```
 
@@ -113,8 +140,11 @@ scripts/publish.sh production --rollout=0.1
 
 ## Track promotion order
 
-internal → closed (alpha) → open (beta) → production. Use staged rollout for
-production; halt/roll back in the Console on regressions.
+internal → closed (alpha) → open (beta) → production. Use
+`scripts/publish.sh promote` to move the tested build up (don't rebuild for
+production), staged rollout for the production step, and
+`scripts/publish.sh rollout --halt` on regressions (rolling back to a
+*previous* release still needs the Console).
 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) has the full sequence.
 
 ## Troubleshooting
@@ -160,6 +190,13 @@ production; halt/roll back in the Console on regressions.
   store listing isn't complete yet (graphics especially). `internal` accepts
   uploads on a draft app; other tracks don't. Finish the listing (or use
   `--upload-images`, see above) first.
+- **Upload/promote to `production` fails but testing tracks work** → on a
+  personal account created after Nov 13, 2023, production doesn't exist as a
+  target until the 12-tester/14-day closed test is done and Google approves
+  the production-access application (see one-time setup above).
+- **`rollout --halt`/`--set` can't find the release** → some fastlane/supply
+  versions need the release pinned explicitly; retry with
+  `--version-code=<versionCode of the rolling release>`.
 - **`bundle install` fails on a fresh machine with a Bundler version error**
   → an old `Gemfile.lock` pinned to a Bundler version incompatible with a
   newer Ruby. `rm Gemfile.lock && bundle install` to regenerate it.

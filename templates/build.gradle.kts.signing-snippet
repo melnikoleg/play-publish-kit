@@ -19,6 +19,8 @@ android {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
+            // The R8 mapping.txt this produces is auto-uploaded by
+            // scripts/publish.sh so Play Console crash reports deobfuscate.
             // Native debug symbols for Play Console crash/ANR reports.
             ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }

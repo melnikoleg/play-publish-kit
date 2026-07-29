@@ -34,5 +34,9 @@ Also declare globally:
 - Sending data to your own backend over HTTPS = collected, encrypted in transit,
   not necessarily shared (sharing means a separate company).
 - Third-party SDKs (analytics, ads, crash reporting) count — include their data.
+- Apps targeting API 33+ that use the advertising ID (any ads/analytics SDK
+  usually does) must declare the `com.google.android.gms.permission.AD_ID`
+  permission in the manifest AND answer the advertising-ID question in the
+  form; a mismatch is a common rejection.
 - Keep this form, the store listing's privacy section, and the privacy policy
   consistent. Mismatches cause rejections.

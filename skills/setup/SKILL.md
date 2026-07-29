@@ -63,15 +63,18 @@ Walk through the one-time setup from `$KIT_DIR/docs/PUBLISHING.md` (steps 1–8)
 4. GCP service account: `"$KIT_DIR/scripts/setup_gcp_service_account.sh"`
    (needs authenticated gcloud).
 5. `bundle install` in `$KIT_DIR`.
-6. Build the first AAB (`flutter build appbundle --release`) for the manual
-   first upload.
 
 Then list explicitly the browser-only Play Console steps no API can do:
-pay the $25 dev fee and **Create app**; upload the **first AAB by hand**
-(Testing → Internal testing) and enroll in Play App Signing; link the service
-account (Users and permissions → invite the SA email → grant "Release apps to
-testing tracks", plus production if needed); content rating questionnaire;
-Data Safety form; pricing/countries/target audience.
+pay the $25 dev fee, complete account verification (personal: ID + address
+doc; organization: registry papers + D-U-N-S), and **Create app**; link the
+service account (Users and permissions → invite the SA email → grant "Release
+apps to testing tracks", plus production if needed); content rating
+questionnaire; Data Safety form; pricing/countries/target audience; and — for
+personal accounts created after Nov 13, 2023 — the 12-tester/14-day closed
+test + production-access application before production is available. The first
+AAB upload is NOT manual: once the service account is granted,
+`publish.sh internal` works via the API even for the very first release, and
+Play App Signing auto-enrolls.
 
 ## Guardrails
 

@@ -23,6 +23,22 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Upload a pre-built AAB to a Play track. Options: track, aab, rollout, skip_metadata, skip_images, dry_run.
 
+### android promote
+
+```sh
+[bundle exec] fastlane android promote
+```
+
+Promote the release on one track to another without rebuilding. Options: from, to, rollout, dry_run.
+
+### android rollout
+
+```sh
+[bundle exec] fastlane android rollout
+```
+
+Manage a staged rollout in place. Options: track (default production), set:<fraction>, halt, complete, version_code, dry_run.
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.

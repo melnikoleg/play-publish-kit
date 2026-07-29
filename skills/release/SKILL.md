@@ -46,13 +46,28 @@ Other testing tracks work the same: `alpha` (closed), `beta` (open).
 
 ## Production promotion (staged)
 
-Production is ALWAYS two steps:
+Promote the build already tested on a testing track — do NOT rebuild for
+production. Production is ALWAYS two steps:
 
-1. Dry run first: `"$KIT_DIR/scripts/publish.sh" production --rollout=<f> --dry-run`
-   (default `--rollout=0.1` unless the user specified one) and show the
-   validation output.
+1. Dry run first:
+   `"$KIT_DIR/scripts/publish.sh" promote --from=<track> --to=production --rollout=<f> --dry-run`
+   (`--from` defaults to `internal`; default `--rollout=0.1` unless the user
+   specified one) and show the validation output.
 2. Ask the user to confirm, and only after an explicit "yes" in this
    conversation run it without `--dry-run`.
+
+Only build fresh for production (`publish.sh production --rollout=<f>`, same
+two-step dry-run + confirm) when there is nothing on a testing track to
+promote.
+
+## Managing a staged rollout
+
+- Raise: `"$KIT_DIR/scripts/publish.sh" rollout --set=<f>`
+- Finish: `... rollout --complete`
+- Halt on a regression: `... rollout --halt`
+
+`--complete` and `--halt` also need explicit user confirmation. If supply
+can't find the release, add `--version-code=<code>`.
 
 ## GUARDRAILS (non-negotiable)
 

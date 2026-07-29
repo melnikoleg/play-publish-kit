@@ -23,7 +23,56 @@ platform :android do
     # fastlane validates metadata_path exists even when skip_upload_metadata
     # is true, so only pass it when metadata is actually being uploaded.
     params[:metadata_path] = options[:metadata_path] if options[:metadata_path]
+    # R8/proguard mapping for deobfuscated crash reports in Play Console.
+    params[:mapping] = options[:mapping] if options[:mapping]
 
+    upload_to_play_store(**params)
+  end
+
+  desc "Promote the release on one track to another without rebuilding. Options: from, to, rollout, dry_run."
+  lane :promote do |options|
+    params = {
+      track: options[:from] || "internal",
+      track_promote_to: options[:to] || "production",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      validate_only: options.fetch(:dry_run, false),
+    }
+    if options[:rollout]
+      params[:track_promote_release_status] = "inProgress"
+      params[:rollout] = options[:rollout].to_s
+    end
+    upload_to_play_store(**params)
+  end
+
+  desc "Manage a staged rollout in place. Options: track (default production), set:<fraction>, halt, complete, version_code, dry_run."
+  lane :rollout do |options|
+    params = {
+      track: options[:track] || "production",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      validate_only: options.fetch(:dry_run, false),
+    }
+    if options[:halt]
+      params[:release_status] = "halted"
+    elsif options[:complete]
+      params[:release_status] = "completed"
+    elsif options[:set]
+      params[:release_status] = "inProgress"
+      params[:rollout] = options[:set].to_s
+    else
+      UI.user_error!("pass set:<fraction>, halt:true, or complete:true")
+    end
+    # Some supply versions need the explicit version code to find the release.
+    params[:version_code] = options[:version_code].to_i if options[:version_code]
     upload_to_play_store(**params)
   end
 end

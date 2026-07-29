@@ -12,7 +12,7 @@ play-publish-kit/
 ├── .claude-plugin/          # plugin.json + marketplace.json (Claude Code plugin)
 ├── skills/                  # Claude Code skills: setup, release, listing, compliance
 ├── scripts/
-│   ├── publish.sh           # build signed AAB → upload to a track
+│   ├── publish.sh           # build signed AAB → upload; promote tracks; manage rollouts
 │   └── gen_upload_keystore.sh
 ├── fastlane/
 │   ├── Appfile              # reads package + service account from env
@@ -37,6 +37,13 @@ scripts/gen_upload_keystore.sh        # one-time, if no upload key yet
 # wire signing into the app's android/app/build.gradle.kts
 #   (see templates/build.gradle.kts.signing-snippet)
 scripts/publish.sh internal --bump    # build + upload
+```
+
+Then, when the internal build checks out:
+
+```bash
+scripts/publish.sh promote --from=internal --to=production --rollout=0.1
+scripts/publish.sh rollout --set=0.5     # later: --complete or --halt
 ```
 
 Full walkthrough: [docs/PUBLISHING.md](docs/PUBLISHING.md).

@@ -4,6 +4,8 @@
 #
 # Usage:
 #   scripts/publish.sh [track] [flags]
+#   scripts/publish.sh promote [--from=internal] [--to=production] [--rollout=0.1] [--dry-run]
+#   scripts/publish.sh rollout (--set=0.5 | --halt | --complete) [--version-code=N] [--dry-run]
 #
 #   track             internal (default) | alpha (closed) | beta (open) | production
 #
@@ -13,6 +15,12 @@
 #   --upload-metadata Push fastlane/metadata store listing + changelog too
 #   --upload-images   Push icon/featureGraphic/screenshots too (see below)
 #   --dry-run         Build, then validate the upload without committing it
+#
+#   promote           Move the release already on one track to another (no rebuild —
+#                     ships the exact binary you tested). Preferred over
+#                     `publish.sh production` for promotion.
+#   rollout           Change a staged rollout in place: raise the fraction (--set),
+#                     halt it, or complete it to 100%.
 #
 # Graphics for --upload-images live under fastlane/metadata/android/en-US/images/:
 #   icon.png (512x512), featureGraphic.png (1024x500), phoneScreenshots/1.png...
@@ -25,18 +33,28 @@ set -euo pipefail
 KIT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # ── Args ──────────────────────────────────────────────────────────────────────
+MODE="publish"
+case "${1:-}" in promote|rollout) MODE="$1"; shift ;; esac
+
 TRACK="internal"
 BUMP=0; NO_BUILD=0; DRY_RUN=0; UPLOAD_META=0; UPLOAD_IMAGES=0; ROLLOUT=""
+FROM="internal"; TO="production"; SET=""; HALT=0; COMPLETE=0; VERSION_CODE=""
 for arg in "$@"; do
-  case "$arg" in
-    internal|alpha|beta|production) TRACK="$arg" ;;
-    --bump) BUMP=1 ;;
-    --no-build) NO_BUILD=1 ;;
-    --dry-run) DRY_RUN=1 ;;
-    --upload-metadata) UPLOAD_META=1 ;;
-    --upload-images) UPLOAD_IMAGES=1 ;;
-    --rollout=*) ROLLOUT="${arg#*=}" ;;
-    *) echo "Unknown arg: $arg" >&2; exit 1 ;;
+  case "$MODE:$arg" in
+    publish:internal|publish:alpha|publish:beta|publish:production) TRACK="$arg" ;;
+    publish:--bump) BUMP=1 ;;
+    publish:--no-build) NO_BUILD=1 ;;
+    publish:--upload-metadata) UPLOAD_META=1 ;;
+    publish:--upload-images) UPLOAD_IMAGES=1 ;;
+    publish:--rollout=*|promote:--rollout=*) ROLLOUT="${arg#*=}" ;;
+    promote:--from=*) FROM="${arg#*=}" ;;
+    promote:--to=*) TO="${arg#*=}" ;;
+    rollout:--set=*) SET="${arg#*=}" ;;
+    rollout:--halt) HALT=1 ;;
+    rollout:--complete) COMPLETE=1 ;;
+    rollout:--version-code=*) VERSION_CODE="${arg#*=}" ;;
+    *:--dry-run) DRY_RUN=1 ;;
+    *) echo "Unknown arg for $MODE: $arg" >&2; exit 1 ;;
   esac
 done
 
@@ -57,18 +75,51 @@ FLAVOR="${FLAVOR:-}"
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 fail() { echo "preflight: $1" >&2; exit 1; }
+command -v bundle >/dev/null || fail "bundler not found (gem install bundler)"
+for v in APP_PACKAGE PLAY_SERVICE_ACCOUNT_JSON; do
+  [[ -n "${!v:-}" ]] || fail "$v unset in .env.play"
+done
+[[ -f "$PLAY_SERVICE_ACCOUNT_JSON" ]] || fail "service account json not found: $PLAY_SERVICE_ACCOUNT_JSON"
+# Rollout fraction must be 0<f<=1 whenever set (e.g. 0.1, .5, 1). Rejects 0 / 0.0.
+for f in "$ROLLOUT" "$SET"; do
+  [[ -z "$f" ]] || [[ "$f" =~ ^(0?\.[0-9]*[1-9][0-9]*|1|1\.0+)$ ]] || fail "invalid rollout fraction: $f (use 0<f<=1, e.g. 0.1)"
+done
+export APP_PACKAGE PLAY_SERVICE_ACCOUNT_JSON
+
+# ── promote / rollout: API-only, no build ─────────────────────────────────────
+if [[ "$MODE" == "promote" ]]; then
+  fl_args=("from:$FROM" "to:$TO")
+  [[ -n "$ROLLOUT" ]] && fl_args+=("rollout:$ROLLOUT")
+  [[ "$DRY_RUN" == 1 ]] && fl_args+=("dry_run:true")
+  echo "==> (cd $KIT_DIR) fastlane promote ${fl_args[*]}"
+  ( cd "$KIT_DIR" && bundle exec fastlane promote "${fl_args[@]}" )
+  [[ "$DRY_RUN" == 1 ]] && echo "Done (dry-run, nothing committed)." || echo "Done. Promoted $FROM -> $TO."
+  exit 0
+fi
+if [[ "$MODE" == "rollout" ]]; then
+  n=$(( HALT + COMPLETE )); [[ -n "$SET" ]] && n=$(( n + 1 ))
+  [[ "$n" == 1 ]] || fail "rollout needs exactly one of --set=, --halt, --complete"
+  fl_args=()
+  [[ -n "$SET" ]] && fl_args+=("set:$SET")
+  [[ "$HALT" == 1 ]] && fl_args+=("halt:true")
+  [[ "$COMPLETE" == 1 ]] && fl_args+=("complete:true")
+  [[ -n "$VERSION_CODE" ]] && fl_args+=("version_code:$VERSION_CODE")
+  [[ "$DRY_RUN" == 1 ]] && fl_args+=("dry_run:true")
+  echo "==> (cd $KIT_DIR) fastlane rollout ${fl_args[*]}"
+  ( cd "$KIT_DIR" && bundle exec fastlane rollout "${fl_args[@]}" )
+  echo "Done."
+  exit 0
+fi
+
+# ── Preflight (build + upload path only) ──────────────────────────────────────
 command -v flutter >/dev/null || fail "flutter not on PATH"
-command -v bundle  >/dev/null || fail "bundler not found (gem install bundler)"
 [[ -f "$PROJECT_DIR/pubspec.yaml" ]] || fail "no pubspec.yaml in PROJECT_DIR=$PROJECT_DIR"
-for v in APP_PACKAGE KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
+for v in KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
   [[ -n "${!v:-}" ]] || fail "$v unset in .env.play"
 done
 [[ -f "$KEYSTORE_PATH" ]] || fail "keystore not found: $KEYSTORE_PATH (run scripts/gen_upload_keystore.sh)"
-[[ -f "$PLAY_SERVICE_ACCOUNT_JSON" ]] || fail "service account json not found: $PLAY_SERVICE_ACCOUNT_JSON"
-# Rollout fraction must be 0<f<=1 whenever set (e.g. 0.1, .5, 1). Rejects 0 / 0.0.
-[[ -z "$ROLLOUT" ]] || [[ "$ROLLOUT" =~ ^(0?\.[0-9]*[1-9][0-9]*|1|1\.0+)$ ]] || fail "invalid --rollout=$ROLLOUT (use 0<f<=1, e.g. 0.1)"
 
-export APP_PACKAGE KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON
+export KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD
 
 # ── Resolve AAB path ──────────────────────────────────────────────────────────
 if [[ -n "${AAB_PATH:-}" ]]; then
@@ -101,7 +152,15 @@ fi
 echo "==> AAB: $AAB"
 
 # ── Upload ────────────────────────────────────────────────────────────────────
+# R8 mapping for deobfuscated crash/ANR reports (exists when minify is enabled).
+if [[ -n "$FLAVOR" ]]; then
+  MAPPING="$PROJECT_DIR/build/app/outputs/mapping/${FLAVOR}Release/mapping.txt"
+else
+  MAPPING="$PROJECT_DIR/build/app/outputs/mapping/release/mapping.txt"
+fi
+
 fl_args=("track:$TRACK" "aab:$AAB")
+[[ -f "$MAPPING" ]] && fl_args+=("mapping:$MAPPING")
 [[ -n "$ROLLOUT" ]] && fl_args+=("rollout:$ROLLOUT")
 [[ "$DRY_RUN" == 1 ]] && fl_args+=("dry_run:true")
 if [[ "$UPLOAD_META" == 1 ]]; then fl_args+=("skip_metadata:false"); else fl_args+=("skip_metadata:true"); fi

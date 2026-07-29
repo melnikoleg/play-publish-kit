@@ -45,9 +45,13 @@ them from the Flutter project that has the kit configured (`.env.play` filled).
 
 ## 5. Promote to production (staged)
 
-> Promote the current build to production at 10% staged rollout. First run
-> `play-publish-kit/scripts/publish.sh production --rollout=0.1 --dry-run` and
-> show the validation output; only run it for real after I confirm.
+> Promote the build tested on internal to production at 10% staged rollout —
+> don't rebuild. First run `play-publish-kit/scripts/publish.sh promote
+> --from=internal --to=production --rollout=0.1 --dry-run` and show the
+> validation output; only run it for real after I confirm. Later I'll say
+> "raise to 50%" / "complete" / "halt" — use
+> `play-publish-kit/scripts/publish.sh rollout --set=0.5 | --complete | --halt`,
+> confirming before --complete or --halt.
 
 ## 6. New-app bootstrap
 
